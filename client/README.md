@@ -25,6 +25,31 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Configuring API URL (Cấu hình địa chỉ API)
+
+This project connects to a Spring Boot backend. In order for physical mobile devices running **Expo Go** to communicate with your backend, you must configure the backend's local network IP address:
+
+1. **Find your computer's local IP Address**:
+   - On **Windows**: Open Command Prompt (`cmd`) and run `ipconfig`. Look for the IPv4 Address (e.g., `192.168.1.10`).
+   - On **macOS/Linux**: Open terminal and run `ifconfig` or `ip a`. Look for the local IP (e.g., `192.168.1.10`).
+
+2. **Create a `.env` file**:
+   - Copy the contents of [.env.example](file:///d:/code/ctdmst/product/CookMateAI_test/client/.env.example) to a new file named `.env` in the `client` directory:
+     ```bash
+     cp .env.example .env
+     ```
+   - Edit the `.env` file and replace the IP address with your computer's local IP address:
+     ```env
+     EXPO_PUBLIC_API_URL=http://<YOUR_LOCAL_IP>:8080/api/v1
+     ```
+
+3. **When changing Wi-Fi networks or computers**:
+   - Every time you change Wi-Fi networks or your computer's IP address changes, you must update the `EXPO_PUBLIC_API_URL` value in your `.env` file and restart the Expo bundler:
+     ```bash
+     npx expo start -c
+     ```
+     *(The `-c` flag clears the bundler cache to ensure the new environment variable is loaded).*
+
 ## Get a fresh project
 
 When you're ready, run:
