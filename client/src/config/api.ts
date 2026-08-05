@@ -53,6 +53,9 @@ export const API_CONFIG = {
       BASE: '/transactions',
       SUMMARY: '/transactions/summary',
     },
+    RECIPES: {
+      RECOMMEND: '/recipes/recommend',
+    },
   },
 };
 

@@ -8,8 +8,17 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { router } from 'expo-router';
+import { authService } from '../services/auth.service';
 
 export default function ProfileScreen() {
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
@@ -79,6 +88,15 @@ export default function ProfileScreen() {
             <Text style={styles.actionSubtitle}>Theo dõi chi tiêu</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.logoutButtonText}>🚪 Đăng xuất</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -237,5 +255,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
+  },
+  logoutButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ffccd3',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 20,
+    shadowColor: '#a81c30',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 1,
+  },
+  logoutButtonText: {
+    color: '#d9384d',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

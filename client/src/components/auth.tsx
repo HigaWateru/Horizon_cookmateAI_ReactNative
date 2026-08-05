@@ -10,6 +10,9 @@ import {
   ScrollView,
 } from 'react-native';
 
+import { authService } from '../services/auth.service';
+import tokenStorage from '../services/tokenStorage';
+
 interface AuthScreenProps {
   onLogin: () => void;
 }
@@ -21,9 +24,21 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSubmit = () => {
-    // Demo mode: allow any input or empty to login
-    onLogin();
+  const handleSubmit = async () => {
+    try {
+      if (email.trim() && password) {
+        await authService.login(email.trim(), password);
+      } else {
+        await tokenStorage.setAccessToken('demo_access_token');
+        await tokenStorage.setRefreshToken('demo_refresh_token');
+      }
+      onLogin();
+    } catch (err) {
+      console.warn('Backend login failed, using guest mode:', err);
+      await tokenStorage.setAccessToken('demo_access_token');
+      await tokenStorage.setRefreshToken('demo_refresh_token');
+      onLogin();
+    }
   };
 
   return (

@@ -18,6 +18,7 @@ public interface UserMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "emailVerified", ignore = true)
     @Mapping(target = "avatarUrl", ignore = true)
+    @Mapping(target = "monthlyBudget", ignore = true)
     User toUser(RegisterRequest request);
 
     @Mapping(target = "roles", source = "roles", qualifiedByName = "mapRoles")

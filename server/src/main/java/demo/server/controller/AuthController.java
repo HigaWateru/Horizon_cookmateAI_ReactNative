@@ -40,8 +40,10 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "Đăng xuất và đưa mã access token hiện tại vào danh sách đen")
-    public ApiResponse<String> logout(@RequestHeader("Authorization") String authHeader) {
-        authService.logout(authHeader);
+    public ApiResponse<String> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader != null && !authHeader.isEmpty()) {
+            authService.logout(authHeader);
+        }
         return ApiResponse.success("Đăng xuất thành công", "Mã token đã được đưa vào danh sách đen");
     }
 

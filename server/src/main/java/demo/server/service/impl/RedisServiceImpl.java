@@ -42,6 +42,10 @@ public class RedisServiceImpl implements RedisService {
 
     @Override
     public boolean isTokenBlacklisted(String token) {
-        return Boolean.TRUE.equals(hasKey(BLACKLIST_PREFIX + token));
+        try {
+            return Boolean.TRUE.equals(hasKey(BLACKLIST_PREFIX + token));
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

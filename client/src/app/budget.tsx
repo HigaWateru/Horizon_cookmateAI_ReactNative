@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,9 +11,12 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { budgetData } from '../data/mockData';
+import { budgetData as initialBudgetData } from '../data/mockData';
+import { transactionService } from '../services/transaction.service';
+import tokenStorage from '../services/tokenStorage';
 
 const expenseTypes = ['Nguyên liệu', 'Đặt đồ ăn', 'Ăn ngoài', 'Gia vị'];
 
@@ -33,11 +36,38 @@ export default function BudgetScreen() {
   const [formCategory, setFormCategory] = useState('Nguyên liệu');
   const [formAddToInventory, setFormAddToInventory] = useState(false);
 
+  const [summary, setSummary] = useState<any>(initialBudgetData);
+  const [loading, setLoading] = useState(false);
+
+  // Shadow the imported initialBudgetData with local state summary for JSX bindings
+  const budgetData = summary;
+
+  const fetchSummary = async () => {
+    const token = await tokenStorage.getAccessToken();
+    if (!token) return;
+
+    setLoading(true);
+    try {
+      const response = await transactionService.getSummary();
+      if (response && response.result) {
+        setSummary(response.result);
+      }
+    } catch (err) {
+      console.error('Failed to fetch budget summary', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSummary();
+  }, []);
+
   const spent = budgetData.spent;
   const remaining = Math.max(budgetData.budgetLimit - spent, 0);
-  const spentPercent = Math.min(Math.round((spent / budgetData.budgetLimit) * 100), 100);
-  const remainingPercent = Math.round((remaining / budgetData.budgetLimit) * 100);
-  const dailySuggestion = Math.floor(remaining / budgetData.daysLeft);
+  const spentPercent = budgetData.budgetLimit > 0 ? Math.min(Math.round((spent / budgetData.budgetLimit) * 100), 100) : 0;
+  const remainingPercent = budgetData.budgetLimit > 0 ? Math.round((remaining / budgetData.budgetLimit) * 100) : 0;
+  const dailySuggestion = budgetData.daysLeft > 0 ? Math.floor(remaining / budgetData.daysLeft) : 0;
   const isLowBudget = remainingPercent < 30;
 
   const showToast = (message: string) => {
@@ -53,7 +83,7 @@ export default function BudgetScreen() {
     setFormAddToInventory(false);
   };
 
-  const saveExpense = () => {
+  const saveExpense = async () => {
     const amount = Number(formAmount);
     const name = formName.trim();
 
@@ -66,8 +96,24 @@ export default function BudgetScreen() {
       return;
     }
 
-    showToast('Demo UI/UX: dữ liệu cố định, không lưu khoản chi mới.');
-    closeSheet();
+    setLoading(true);
+    try {
+      await transactionService.create({
+        name,
+        amount,
+        category: formCategory,
+        date: new Date().toISOString().split('T')[0],
+        addToInventory: formAddToInventory
+      });
+      showToast('Ghi chép chi tiêu thành công.');
+      closeSheet();
+      fetchSummary();
+    } catch (err) {
+      console.error('Failed to save expense', err);
+      showToast('Lỗi khi ghi nhận chi tiêu.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -78,7 +124,13 @@ export default function BudgetScreen() {
         </View>
       ) : null}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchSummary} colors={['#11876d']} />
+        }
+      >
         {/* Header */}
         <View style={styles.budgetHeader}>
           <View>

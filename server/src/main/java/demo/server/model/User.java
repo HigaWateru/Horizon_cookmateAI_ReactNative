@@ -30,6 +30,10 @@ public class User {
 
     String avatarUrl;
 
+    @Builder.Default
+    @Column(precision = 19, scale = 2)
+    java.math.BigDecimal monthlyBudget = new java.math.BigDecimal("1500000");
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_role",

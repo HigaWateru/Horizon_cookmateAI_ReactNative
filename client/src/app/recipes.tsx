@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  RefreshControl,
 } from 'react-native';
 import { ingredientTags, recipes, Recipe } from '../data/mockData';
+import { recipeService } from '../services/recipe.service';
+import tokenStorage from '../services/tokenStorage';
 
 const categories = ['Tất cả', 'Sắp hết hạn', 'Không cần mua'];
 
@@ -23,6 +26,30 @@ export default function RecipesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [tagsOpen, setTagsOpen] = useState(false);
   const [toast, setToast] = useState('');
+
+  const [recipesList, setRecipesList] = useState<Recipe[]>(recipes);
+  const [loading, setLoading] = useState(false);
+
+  const fetchRecommendations = async () => {
+    const token = await tokenStorage.getAccessToken();
+    if (!token) return;
+
+    setLoading(true);
+    try {
+      const response = await recipeService.getRecommendations();
+      if (response && response.result) {
+        setRecipesList(response.result);
+      }
+    } catch (err) {
+      console.error('Failed to fetch recipe recommendations', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -55,7 +82,7 @@ export default function RecipesScreen() {
 
   // Rank recipes by how many ingredients match selectedTags
   const rankedRecipes = useMemo(() => {
-    return recipes
+    return recipesList
       .map((recipe) => {
         const selectedMatches = recipe.ingredients.filter((ingr) =>
           selectedTags.includes(ingr)
@@ -180,7 +207,13 @@ export default function RecipesScreen() {
           <Text style={styles.helperText}>Chọn tag để lọc món có thể nấu</Text>
 
           {/* Recipes results list */}
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.recipesList}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={styles.recipesList}
+            refreshControl={
+              <RefreshControl refreshing={loading} onRefresh={fetchRecommendations} colors={['#11876d']} />
+            }
+          >
             {rankedRecipes.map((recipe) => (
               <TouchableOpacity
                 key={recipe.id}
