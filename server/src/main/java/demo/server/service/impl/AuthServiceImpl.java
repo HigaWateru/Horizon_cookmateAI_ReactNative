@@ -184,6 +184,11 @@ public class AuthServiceImpl implements AuthService {
         redisService.delete(PASSWORD_RESET_PREFIX + request.getEmail());
     }
 
+    @Override
+    public UserResponse getProfile(User user) {
+        return userMapper.toUserResponse(user);
+    }
+
     private String generateOtp() {
         Random random = new Random();
         int code = 100000 + random.nextInt(900000);

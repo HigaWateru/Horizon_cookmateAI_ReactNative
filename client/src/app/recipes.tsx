@@ -6,11 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ingredientTags, recipes, Recipe } from '../data/mockData';
 import { recipeService } from '../services/recipe.service';
+import { inventoryService } from '../services/inventory.service';
 import tokenStorage from '../services/tokenStorage';
 
 const categories = ['Tất cả', 'Sắp hết hạn', 'Không cần mua'];
@@ -22,7 +23,7 @@ export default function RecipesScreen() {
 
   // Search/Filter states
   const [activeCategory, setActiveCategory] = useState('Sắp hết hạn');
-  const [selectedTags, setSelectedTags] = useState<string[]>(['Rau muống', 'Thịt heo']);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [tagsOpen, setTagsOpen] = useState(false);
   const [toast, setToast] = useState('');
@@ -32,7 +33,7 @@ export default function RecipesScreen() {
 
   const fetchRecommendations = async () => {
     const token = await tokenStorage.getAccessToken();
-    if (!token) return;
+    if (!token || token === 'demo_access_token') return;
 
     setLoading(true);
     try {
@@ -41,14 +42,29 @@ export default function RecipesScreen() {
         setRecipesList(response.result);
       }
     } catch (err) {
-      console.error('Failed to fetch recipe recommendations', err);
+      console.warn('Failed to fetch recipe recommendations', err);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchInventoryTags = async () => {
+    const token = await tokenStorage.getAccessToken();
+    if (!token || token === 'demo_access_token') return;
+    try {
+      const response = await inventoryService.getAll({ size: 100 });
+      if (response && response.result && response.result.content) {
+        const names = response.result.content.map((item: any) => item.name);
+        setSelectedTags(names);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch inventory tags for recipe filter:', err);
+    }
+  };
+
   useEffect(() => {
     fetchRecommendations();
+    fetchInventoryTags();
   }, []);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
@@ -327,7 +343,8 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
   },
   screenTitleRow: {
     marginBottom: 16,
@@ -490,7 +507,7 @@ const styles = StyleSheet.create({
   },
   recipesList: {
     gap: 12,
-    paddingBottom: 24,
+    paddingBottom: 80,
   },
   recipeCard: {
     flexDirection: 'row',
@@ -597,7 +614,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   detailScroll: {
-    paddingBottom: 40,
+    paddingBottom: 80,
     gap: 16,
   },
   detailCard: {

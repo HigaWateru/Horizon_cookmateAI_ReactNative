@@ -29,7 +29,7 @@ export const authService = {
     });
     
     // Check if access token is returned inside standard envelope
-    const authData = response.data?.data;
+    const authData = response.data?.result;
     if (authData?.accessToken) {
       await tokenStorage.setAccessToken(authData.accessToken);
       if (authData.refreshToken) {
@@ -80,6 +80,14 @@ export const authService = {
     } finally {
       await tokenStorage.clearAllTokens();
     }
+  },
+
+  /**
+   * Get current authenticated user profile
+   */
+  async getMe() {
+    const response = await apiClient.get('/auth/me');
+    return response.data;
   },
 };
 

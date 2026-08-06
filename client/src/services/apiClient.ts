@@ -90,11 +90,22 @@ apiClient.interceptors.response.use(
       originalRequest &&
       !originalRequest._retry
     ) {
-      // Avoid refreshing token for Auth endpoints (login, register, reset-password, etc.)
-      const isAuthEndpoint = originalRequest.url?.includes('/auth/') && 
-                            !originalRequest.url?.includes('/auth/logout');
+      // Avoid refreshing token for public Auth endpoints (login, register, reset-password, etc.)
+      const isPublicAuthEndpoint = 
+        originalRequest.url?.includes('/auth/login') ||
+        originalRequest.url?.includes('/auth/register') ||
+        originalRequest.url?.includes('/auth/verify-email') ||
+        originalRequest.url?.includes('/auth/forgot-password') ||
+        originalRequest.url?.includes('/auth/reset-password') ||
+        originalRequest.url?.includes('/auth/refresh');
 
-      if (isAuthEndpoint) {
+      if (isPublicAuthEndpoint) {
+        return Promise.reject(error);
+      }
+
+      // Bypass token refresh and logout if using guest/demo token
+      const token = await tokenStorage.getAccessToken();
+      if (token === 'demo_access_token') {
         return Promise.reject(error);
       }
 
@@ -130,9 +141,9 @@ apiClient.interceptors.response.use(
           { refreshToken }
         );
 
-        const { data } = refreshResponse.data; // Adapts to ApiResponse envelope
-        const newAccessToken = data.accessToken;
-        const newRefreshToken = data.refreshToken;
+        const { result } = refreshResponse.data; // Adapts to ApiResponse envelope
+        const newAccessToken = result.accessToken;
+        const newRefreshToken = result.refreshToken;
 
         // Store new tokens
         await tokenStorage.setAccessToken(newAccessToken);
@@ -155,7 +166,7 @@ apiClient.interceptors.response.use(
         processQueue(refreshError, null);
         await tokenStorage.clearAllTokens();
         
-        console.error('Session expired, please log in again.');
+        console.warn('Session expired or unavailable, please log in again.');
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

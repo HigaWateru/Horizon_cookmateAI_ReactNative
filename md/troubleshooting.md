@@ -116,3 +116,27 @@ Tài liệu này ghi lại các lỗi đã gặp trong quá trình phát triển
   }
   ```
 - **Kết quả**: Đạt được tính năng bảo vệ 2 đầu (dual-protection). Ngay cả khi client chưa có token lưu trữ, việc gọi API đăng xuất vẫn trả về mã thành công `200 OK` thay vì lỗi 500, đảm bảo luồng đăng xuất luôn trơn tru.
+
+---
+
+## 7. Lỗi 500 khi truy cập `/api/v1/auth/me` từ Client (do phiên chưa xác thực hoặc máy chủ chưa khởi động lại)
+
+### Triệu chứng
+- Client báo lỗi đỏ: `Failed to fetch user profile: [AxiosError: Request failed with status code 500]`.
+- Console của Spring Boot in lỗi:
+  - Trường hợp 1: `Lỗi hệ thống không xác định: No static resource api/v1/auth/me for request '/api/v1/auth/me'`
+  - Trường hợp 2: `NullPointerException` tại dòng gọi `userDetails.getUser()`.
+
+### Nguyên nhân
+- **Trường hợp 1**: Xảy ra do Spring Boot server chưa được restart để nạp lớp `AuthController` đã cập nhật. Khi đó, đường dẫn `/api/v1/auth/me` chưa tồn tại và Spring Boot tự động chuyển tiếp request sang bộ xử lý tài nguyên tĩnh và ném lỗi `NoResourceFoundException`.
+- **Trường hợp 2**: Xảy ra khi người dùng đang ở chế độ khách (Guest/Demo) mà không có token JWT hợp lệ. Khi đó, bộ lọc `JwtAuthenticationFilter` không thiết lập được đối tượng Security Context, dẫn tới `@AuthenticationPrincipal CustomUserDetails userDetails` nhận giá trị `null`. Việc gọi `userDetails.getUser()` trực tiếp trong Controller kích hoạt lỗi `NullPointerException` (mã lỗi 500).
+
+### Giải pháp
+- **Phía Backend**: Cập nhật hàm `getMe` trong [AuthController.java](file:///d:/code/ctdmst/product/CookMateAI_test/server/src/main/java/demo/server/controller/AuthController.java) bổ sung kiểm tra null để ném ngoại lệ chính xác:
+  ```java
+  if (userDetails == null) {
+      throw new AppException(ErrorCode.UNAUTHENTICATED);
+  }
+  ```
+- **Kết quả**: Khi phiên đăng nhập không có token hoặc token không hợp lệ, Backend sẽ phản hồi mã `401 Unauthorized` (chứ không trả về 500). 
+- **Phía Client**: Cập nhật tệp [profile.tsx](file:///d:/code/ctdmst/product/CookMateAI_test/client/src/app/profile.tsx) và [inventory.tsx](file:///d:/code/ctdmst/product/CookMateAI_test/client/src/app/inventory.tsx), thay thế `console.error` bằng `console.warn` ở khối `catch`. Việc này giúp ngăn chặn Metro bật bảng cảnh báo lỗi đỏ toàn màn hình (Redbox) trên môi trường phát triển đối với các mã lỗi HTTP dự kiến như 401/403. Giao diện vẫn bắt lỗi bình thường và hiển thị dữ liệu chế độ khách an toàn.

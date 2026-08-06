@@ -8,8 +8,10 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import chatService, { ChatMessage } from '../services/chat.service';
+import tokenStorage from '../services/tokenStorage';
 
 interface Message {
   id: string;
@@ -35,42 +37,85 @@ export default function ChatScreen({ onBack }: ChatScreenProps) {
     },
   ]);
   const [draft, setDraft] = useState('');
+  const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  const sendMessage = () => {
-    if (!draft.trim()) return;
+  const sendMessage = async () => {
+    if (!draft.trim() || loading) return;
 
+    const userText = draft.trim();
     const userMessage: Message = {
       id: Date.now().toString(),
       sender: 'user',
-      text: draft,
+      text: userText,
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const userText = draft;
     setDraft('');
+    setLoading(true);
 
     // Scroll to bottom
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
-    // Simulate AI response
-    setTimeout(() => {
-      let aiText = 'Chào bạn! Đây là chế độ demo của CookMate AI. Hệ thống đang ghi nhận thông tin nấu ăn của bạn.';
-      if (userText.toLowerCase().includes('hết hạn') || userText.toLowerCase().includes('ngày')) {
-        aiText = 'Tôi khuyên bạn nên sử dụng rau muống (còn 1 ngày) để làm món "Thịt xào rau muống" hoặc "Rau muống xào tỏi" để tránh lãng phí!';
-      } else if (userText.toLowerCase().includes('rẻ') || userText.toLowerCase().includes('tiết kiệm')) {
-        aiText = 'Để tiết kiệm chi phí, món "Trứng chiên cà chua" là lựa chọn tốt nhất hiện tại (chi phí mua thêm: 0đ).';
-      }
+    // Check Guest/Demo mode
+    const token = await tokenStorage.getAccessToken();
+    if (token === 'demo_access_token') {
+      setTimeout(() => {
+        let aiText = 'Chào bạn! Đây là chế độ demo của CookMate AI. Ở chế độ này, tôi chỉ có thể phản hồi bằng các câu trả lời mẫu. Hãy đăng nhập tài khoản thật để trò chuyện trực tiếp với trợ lý AI nhé!';
+        if (userText.toLowerCase().includes('hết hạn') || userText.toLowerCase().includes('ngày')) {
+          aiText = 'Tôi khuyên bạn nên sử dụng rau muống (còn 1 ngày) để làm món "Thịt xào rau muống" hoặc "Rau muống xào tỏi" để tránh lãng phí!';
+        } else if (userText.toLowerCase().includes('rẻ') || userText.toLowerCase().includes('tiết kiệm')) {
+          aiText = 'Để tiết kiệm chi phí, món "Trứng chiên cà chua" là lựa chọn tốt nhất hiện tại (chi phí mua thêm: 0đ).';
+        }
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: 'ai',
-        text: aiText,
-      };
+        const aiMessage: Message = {
+          id: Date.now().toString(),
+          sender: 'ai',
+          text: aiText,
+        };
 
-      setMessages((prev) => [...prev, aiMessage]);
+        setMessages((prev) => [...prev, aiMessage]);
+        setLoading(false);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }, 800);
+      return;
+    }
+
+    // Call real OpenAI service
+    const tempId = 'temp-' + Date.now();
+    const tempAiMessage: Message = {
+      id: tempId,
+      sender: 'ai',
+      text: '💬 CookMate đang suy nghĩ...',
+    };
+    setMessages((prev) => [...prev, tempAiMessage]);
+
+    try {
+      // Map current messages to ChatMessage interface (exclude the temp loading message)
+      const apiHistory: ChatMessage[] = messages.map((m) => ({
+        sender: m.sender,
+        text: m.text,
+      }));
+
+      const response = await chatService.sendMessage(userText, apiHistory);
+      const aiText = response?.result?.text || 'Tôi không nhận được phản hồi từ trợ lý AI.';
+
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === tempId ? { ...msg, text: aiText } : msg))
+      );
+    } catch (err) {
+      console.warn('Failed to chat with AI:', err);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...msg, text: '⚠️ Đã xảy ra lỗi khi kết nối với trợ lý AI. Vui lòng thử lại sau.' }
+            : msg
+        )
+      );
+    } finally {
+      setLoading(false);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    }, 800);
+    }
   };
 
   const selectQuickPrompt = (prompt: string) => {
@@ -303,7 +348,8 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 80,
     borderTopWidth: 1,
     borderTopColor: '#caeae0',
     backgroundColor: '#ffffff',

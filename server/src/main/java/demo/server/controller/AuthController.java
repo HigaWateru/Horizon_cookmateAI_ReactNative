@@ -3,6 +3,10 @@ package demo.server.controller;
 import demo.server.common.ApiResponse;
 import demo.server.dto.*;
 import demo.server.service.AuthService;
+import demo.server.security.CustomUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import demo.server.exception.AppException;
+import demo.server.exception.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -30,6 +34,15 @@ public class AuthController {
     @Operation(summary = "Đăng nhập bằng tài khoản và mật khẩu")
     public ApiResponse<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
         return ApiResponse.success("Đăng nhập thành công", authService.login(request));
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Lấy thông tin tài khoản hiện tại")
+    public ApiResponse<UserResponse> getMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+        return ApiResponse.success("Lấy thông tin tài khoản thành công", authService.getProfile(userDetails.getUser()));
     }
 
     @PostMapping("/refresh")

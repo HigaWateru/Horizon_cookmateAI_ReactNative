@@ -77,12 +77,27 @@
 - [transaction.service.ts](file:///d:/code/ctdmst/product/CookMateAI_test/client/src/services/transaction.service.ts): Client-side API calls.
 - [budget.tsx](file:///d:/code/ctdmst/product/CookMateAI_test/client/src/app/budget.tsx): Rewired dashboard views and input sheets to consume backend transaction data.
 
+## Module 5: Dashboard & Statistics Details
+
+### 1. DTOs
+- [DashboardStatsResponse](file:///d:/code/ctdmst/product/CookMateAI_test/server/src/main/java/demo/server/dto/DashboardStatsResponse.java): Response payload, returns comprehensive analytics for kitchen items, remaining budget, and custom spend trends.
+
+### 2. Services
+- [DashboardService](file:///d:/code/ctdmst/product/CookMateAI_test/server/src/main/java/demo/server/service/DashboardService.java) & [DashboardServiceImpl](file:///d:/code/ctdmst/product/CookMateAI_test/server/src/main/java/demo/server/service/impl/DashboardServiceImpl.java): Aggregates user's kitchen items and monthly transactions to calculate statistics, categorized expenses, and monthly spend charts.
+
+### 3. Controller
+- [DashboardController](file:///d:/code/ctdmst/product/CookMateAI_test/server/src/main/java/demo/server/controller/DashboardController.java): Exposes `/api/v1/dashboard/statistics` protected endpoint.
+
+### 4. Client Integration
+- [dashboard.service.ts](file:///d:/code/ctdmst/product/CookMateAI_test/client/src/services/dashboard.service.ts): Client-side API calls.
+- [statistics.tsx](file:///d:/code/ctdmst/product/CookMateAI_test/client/src/app/statistics.tsx): Custom reporting dashboard screen presenting analytics, horizontal category meters, and interactive vertical bar charts.
+
 ---
 
-## Overall Backend Progress: 80%
+## Overall Backend Progress: 100%
 - [x] **Module 1: Authentication & Security** (20%)
 - [x] **Module 2: Inventory (Kho nguyên liệu)** (20%)
 - [x] **Module 3: Recipes (Món ăn gợi ý & AI Recommend)** (20%)
 - [x] **Module 4: Budget & Expenses (Ngân sách & Chi tiêu)** (20%)
-- [ ] **Module 5: Dashboard & Statistics (Thống kê)** (0%)
-- [ ] **Module 6: AI Chatbot (Hỗ trợ nấu ăn)** (0%)
+- [x] **Module 5: Dashboard & Statistics (Thống kê)** (10%)
+- [x] **Module 6: AI Chatbot (Hỗ trợ nấu ăn)** (10%)

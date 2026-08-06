@@ -1,16 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { authService } from '../services/auth.service';
+import tokenStorage from '../services/tokenStorage';
+import ChatScreen from '../components/chat';
 
 export default function ProfileScreen() {
+  const [user, setUser] = useState<any>(null);
+  const [showChat, setShowChat] = useState(false);
+
+  const fetchProfile = async () => {
+    const token = await tokenStorage.getAccessToken();
+    if (!token || token === 'demo_access_token') {
+      setUser({
+        name: 'Duy Anh',
+        email: 'ban@cookmate.vn',
+      });
+      return;
+    }
+
+    try {
+      const response = await authService.getMe();
+      if (response && response.result) {
+        setUser(response.result);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch user profile:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
   const handleLogout = async () => {
     try {
       await authService.logout();
@@ -18,6 +47,16 @@ export default function ProfileScreen() {
       console.error('Logout error:', error);
     }
   };
+
+  const profileName = user ? user.name : 'Duy Anh';
+  const profileEmail = user ? user.email : 'ban@cookmate.vn';
+  const avatarText = user && user.name
+    ? user.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+    : 'DA';
+
+  if (showChat) {
+    return <ChatScreen onBack={() => setShowChat(false)} />;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -32,18 +71,18 @@ export default function ProfileScreen() {
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>DA</Text>
+              <Text style={styles.avatarText}>{avatarText}</Text>
             </View>
             <View style={styles.profileMeta}>
-              <Text style={styles.profileName}>Duy Anh</Text>
+              <Text style={styles.profileName}>{profileName}</Text>
               <Text style={styles.profileDesc}>
-                Ưu tiên món rẻ, nhanh và dùng hết đồ trong kho.
+                Email: {profileEmail}
               </Text>
             </View>
           </View>
           <TouchableOpacity
             style={styles.chatButton}
-            onPress={() => router.push('/chat')}
+            onPress={() => setShowChat(true)}
             activeOpacity={0.8}
           >
             <Text style={styles.chatButtonText}>💬 Chat AI</Text>
@@ -88,6 +127,16 @@ export default function ProfileScreen() {
             <Text style={styles.actionSubtitle}>Theo dõi chi tiêu</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Statistics Button */}
+        <TouchableOpacity
+          style={styles.fullWidthActionButton}
+          onPress={() => router.push('/statistics')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.fullWidthActionTitle}>📊 Báo cáo & Thống kê</Text>
+          <Text style={styles.fullWidthActionSubtitle}>Phân tích kho đồ ăn & xu hướng chi tiêu</Text>
+        </TouchableOpacity>
 
         {/* Logout Button */}
         <TouchableOpacity
@@ -251,6 +300,30 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   actionSubtitle: {
+    color: '#6e8981',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  fullWidthActionButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#caeae0',
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 12,
+    shadowColor: '#12604d',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  fullWidthActionTitle: {
+    color: '#11876d',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  fullWidthActionSubtitle: {
     color: '#6e8981',
     fontSize: 12,
     fontWeight: '700',

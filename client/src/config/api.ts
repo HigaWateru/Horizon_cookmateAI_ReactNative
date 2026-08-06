@@ -56,6 +56,9 @@ export const API_CONFIG = {
     RECIPES: {
       RECOMMEND: '/recipes/recommend',
     },
+    DASHBOARD: {
+      STATISTICS: '/dashboard/statistics',
+    },
   },
 };
 

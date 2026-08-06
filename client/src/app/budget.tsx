@@ -6,13 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Switch,
   Modal,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { budgetData as initialBudgetData } from '../data/mockData';
 import { transactionService } from '../services/transaction.service';
@@ -44,7 +44,7 @@ export default function BudgetScreen() {
 
   const fetchSummary = async () => {
     const token = await tokenStorage.getAccessToken();
-    if (!token) return;
+    if (!token || token === 'demo_access_token') return;
 
     setLoading(true);
     try {
@@ -53,7 +53,7 @@ export default function BudgetScreen() {
         setSummary(response.result);
       }
     } catch (err) {
-      console.error('Failed to fetch budget summary', err);
+      console.warn('Failed to fetch budget summary', err);
     } finally {
       setLoading(false);
     }
@@ -137,8 +137,12 @@ export default function BudgetScreen() {
             <Text style={styles.eyebrow}>{budgetData.monthLabel}</Text>
             <Text style={styles.screenTitle}>Ngân sách ăn uống</Text>
           </View>
-          <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
-            <Text style={styles.filterIcon}>◴</Text>
+          <TouchableOpacity 
+            style={styles.filterButton} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/statistics')}
+          >
+            <Text style={styles.filterIcon}>📊</Text>
           </TouchableOpacity>
         </View>
 
@@ -187,7 +191,7 @@ export default function BudgetScreen() {
 
           <View style={styles.categorySpendList}>
             {budgetData.categories.map((category) => {
-              const categoryPercent = Math.min(Math.round((category.amount / spent) * 100), 100);
+              const categoryPercent = spent > 0 ? Math.min(Math.round((category.amount / spent) * 100), 100) : 0;
               return (
                 <View style={styles.categorySpendRow} key={category.id}>
                   <View style={styles.categoryIconBg}>

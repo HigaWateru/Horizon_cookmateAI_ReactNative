@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,10 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ingredients as initialIngredients,
   ingredientCategoryGroups,
@@ -17,6 +18,8 @@ import {
   storageOptions,
   Ingredient,
 } from '../data/mockData';
+import { inventoryService } from '../services/inventory.service';
+import tokenStorage from '../services/tokenStorage';
 
 // Expiry tone logic
 const getExpiryTone = (daysLeft: number) => {
@@ -70,6 +73,35 @@ export default function InventoryScreen() {
   // List states
   const [listQuery, setListQuery] = useState('');
   const [ingredientsList, setIngredientsList] = useState<Ingredient[]>(initialIngredients);
+  const [loading, setLoading] = useState(false);
+
+  const fetchInventory = async () => {
+    const token = await tokenStorage.getAccessToken();
+    if (!token || token === 'demo_access_token') return;
+
+    setLoading(true);
+    try {
+      const response = await inventoryService.getAll({ size: 100 });
+      if (response && response.result && response.result.content) {
+        const mapped = response.result.content.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          amount: `${item.quantity} ${item.unit}`,
+          daysLeft: item.daysLeft,
+          icon: item.icon || '🥬',
+        }));
+        setIngredientsList(mapped);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch inventory:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   // Add states
   const [activeCategoryId, setActiveCategoryId] = useState(ingredientCategoryGroups[0].id);
@@ -146,7 +178,7 @@ export default function InventoryScreen() {
     setStep('form');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim()) {
       showToast('Vui lòng nhập tên nguyên liệu.');
       return;
@@ -156,13 +188,35 @@ export default function InventoryScreen() {
       return;
     }
 
-    showToast('Demo UI/UX: dữ liệu cố định, không lưu thay đổi.');
-    setTimeout(() => {
-      setStep('list');
-      // Reset
-      setSelectedTag('');
-      setAddQuery('');
-    }, 1200);
+    setLoading(true);
+    try {
+      const priceVal = formPrice.trim() ? Number(formPrice) : undefined;
+      const expDays = displayedExpiryDays ? Number(displayedExpiryDays) : 3;
+
+      await inventoryService.create({
+        name: formName.trim(),
+        quantity: Number(formQuantity),
+        unit: formUnit,
+        price: priceVal,
+        storageLocation: formStorage,
+        icon: '🥬',
+        category: 'Khác',
+        expiryDays: expDays,
+      });
+
+      showToast('Thêm nguyên liệu thành công.');
+      setTimeout(() => {
+        setStep('list');
+        setSelectedTag('');
+        setAddQuery('');
+        fetchInventory();
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to create ingredient:', err);
+      showToast('Lỗi khi thêm nguyên liệu.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -199,7 +253,13 @@ export default function InventoryScreen() {
           </View>
 
           {/* Ingredients list */}
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollList}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={styles.scrollList}
+            refreshControl={
+              <RefreshControl refreshing={loading} onRefresh={fetchInventory} colors={['#11876d']} />
+            }
+          >
             {filteredIngredients.map((item) => {
               const tone = getExpiryTone(item.daysLeft);
               const colors = getToneColor(tone);
