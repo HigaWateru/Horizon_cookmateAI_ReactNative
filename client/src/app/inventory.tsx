@@ -20,6 +20,7 @@ import {
 } from '../data/mockData';
 import { inventoryService } from '../services/inventory.service';
 import tokenStorage from '../services/tokenStorage';
+import { BottomTabInset } from '../constants/theme';
 
 // Expiry tone logic
 const getExpiryTone = (daysLeft: number) => {
@@ -74,6 +75,8 @@ export default function InventoryScreen() {
   const [listQuery, setListQuery] = useState('');
   const [ingredientsList, setIngredientsList] = useState<Ingredient[]>(initialIngredients);
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [rawIngredients, setRawIngredients] = useState<any[]>([]);
 
   const fetchInventory = async () => {
     const token = await tokenStorage.getAccessToken();
@@ -83,6 +86,7 @@ export default function InventoryScreen() {
     try {
       const response = await inventoryService.getAll({ size: 100 });
       if (response && response.result && response.result.content) {
+        setRawIngredients(response.result.content);
         const mapped = response.result.content.map((item: any) => ({
           id: item.id,
           name: item.name,
@@ -178,6 +182,65 @@ export default function InventoryScreen() {
     setStep('form');
   };
 
+  const handleSelectIngredient = (id: string) => {
+    const rawItem = rawIngredients.find((x) => x.id === id);
+    if (!rawItem) {
+      const mockItem = ingredientsList.find((x) => x.id === id);
+      if (mockItem) {
+        setEditingId(mockItem.id);
+        setFormName(mockItem.name);
+        const parts = mockItem.amount.split(' ');
+        setFormQuantity(parts[0] || '1');
+        setFormUnit(parts[1] || 'gram');
+        setFormPrice('');
+        setFormStorage('Ngăn mát');
+        setFormExpiryDays(String(mockItem.daysLeft || ''));
+        setExpiryTouched(true);
+        setStep('form');
+      }
+      return;
+    }
+
+    setEditingId(rawItem.id);
+    setFormName(rawItem.name);
+    setFormQuantity(String(rawItem.quantity));
+    setFormUnit(rawItem.unit || 'gram');
+    setFormPrice(rawItem.price ? String(rawItem.price) : '');
+    setFormStorage(rawItem.storageLocation || 'Ngăn mát');
+    setFormExpiryDays(String(rawItem.expiryDays ?? ''));
+    setExpiryTouched(true);
+    setStep('form');
+  };
+
+  const handleDelete = async () => {
+    if (!editingId) return;
+
+    const token = await tokenStorage.getAccessToken();
+    const isDemo = !token || token === 'demo_access_token';
+
+    setLoading(true);
+    try {
+      if (isDemo) {
+        setIngredientsList((prev) => prev.filter((item) => item.id !== editingId));
+      } else {
+        await inventoryService.delete(editingId);
+      }
+      showToast('Xóa nguyên liệu thành công.');
+      setTimeout(() => {
+        setStep('list');
+        setEditingId(null);
+        setSelectedTag('');
+        setAddQuery('');
+        if (!isDemo) fetchInventory();
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to delete ingredient:', err);
+      showToast('Lỗi khi xóa nguyên liệu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!formName.trim()) {
       showToast('Vui lòng nhập tên nguyên liệu.');
@@ -193,27 +256,72 @@ export default function InventoryScreen() {
       const priceVal = formPrice.trim() ? Number(formPrice) : undefined;
       const expDays = displayedExpiryDays ? Number(displayedExpiryDays) : 3;
 
-      await inventoryService.create({
-        name: formName.trim(),
-        quantity: Number(formQuantity),
-        unit: formUnit,
-        price: priceVal,
-        storageLocation: formStorage,
-        icon: '🥬',
-        category: 'Khác',
-        expiryDays: expDays,
-      });
+      const token = await tokenStorage.getAccessToken();
+      const isDemo = !token || token === 'demo_access_token';
 
-      showToast('Thêm nguyên liệu thành công.');
+      if (editingId) {
+        if (isDemo) {
+          setIngredientsList((prev) =>
+            prev.map((item) =>
+              item.id === editingId
+                ? {
+                    ...item,
+                    name: formName.trim(),
+                    amount: `${formQuantity} ${formUnit}`,
+                    daysLeft: expDays,
+                  }
+                : item
+            )
+          );
+        } else {
+          await inventoryService.update(editingId, {
+            name: formName.trim(),
+            quantity: Number(formQuantity),
+            unit: formUnit,
+            price: priceVal,
+            storageLocation: formStorage,
+            icon: '🥬',
+            category: 'Khác',
+            expiryDays: expDays,
+          });
+        }
+        showToast('Cập nhật nguyên liệu thành công.');
+      } else {
+        if (isDemo) {
+          const newId = Date.now().toString();
+          const newItem: Ingredient = {
+            id: newId,
+            name: formName.trim(),
+            amount: `${formQuantity} ${formUnit}`,
+            daysLeft: expDays,
+            icon: '🥬',
+          };
+          setIngredientsList((prev) => [newItem, ...prev]);
+        } else {
+          await inventoryService.create({
+            name: formName.trim(),
+            quantity: Number(formQuantity),
+            unit: formUnit,
+            price: priceVal,
+            storageLocation: formStorage,
+            icon: '🥬',
+            category: 'Khác',
+            expiryDays: expDays,
+          });
+        }
+        showToast('Thêm nguyên liệu thành công.');
+      }
+
       setTimeout(() => {
         setStep('list');
+        setEditingId(null);
         setSelectedTag('');
         setAddQuery('');
-        fetchInventory();
+        if (!isDemo) fetchInventory();
       }, 1000);
     } catch (err) {
-      console.error('Failed to create ingredient:', err);
-      showToast('Lỗi khi thêm nguyên liệu.');
+      console.error('Failed to save ingredient:', err);
+      showToast(editingId ? 'Lỗi khi cập nhật nguyên liệu.' : 'Lỗi khi thêm nguyên liệu.');
     } finally {
       setLoading(false);
     }
@@ -235,7 +343,7 @@ export default function InventoryScreen() {
               <Text style={styles.eyebrow}>Tủ lạnh hôm nay</Text>
               <Text style={styles.screenTitle}>Kho nguyên liệu</Text>
             </View>
-            <TouchableOpacity style={styles.roundAddButton} onPress={() => setStep('select')}>
+            <TouchableOpacity style={styles.roundAddButton} onPress={() => { setEditingId(null); setStep('select'); }}>
               <Text style={styles.addSign}>+</Text>
             </TouchableOpacity>
           </View>
@@ -264,7 +372,12 @@ export default function InventoryScreen() {
               const tone = getExpiryTone(item.daysLeft);
               const colors = getToneColor(tone);
               return (
-                <View style={styles.ingredientCard} key={item.id}>
+                <TouchableOpacity
+                  style={styles.ingredientCard}
+                  key={item.id}
+                  onPress={() => handleSelectIngredient(item.id)}
+                  activeOpacity={0.8}
+                >
                   <View style={[styles.ingredientThumb, { backgroundColor: colors.bg }]}>
                     <Text style={styles.ingredientIcon}>{item.icon}</Text>
                   </View>
@@ -275,7 +388,7 @@ export default function InventoryScreen() {
                   <View style={[styles.expiryBadge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
                     <Text style={[styles.expiryText, { color: colors.text }]}>còn {item.daysLeft} ngày</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
             {filteredIngredients.length === 0 && (
@@ -379,19 +492,13 @@ export default function InventoryScreen() {
             </TouchableOpacity>
             <View>
               <Text style={styles.eyebrow}>Kho nguyên liệu</Text>
-              <Text style={styles.screenTitle}>Thêm vào kho</Text>
+              <Text style={styles.screenTitle}>{editingId ? 'Cập nhật' : 'Thêm vào kho'}</Text>
             </View>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
-            {/* Demo warning */}
-            <View style={styles.demoLockBanner}>
-              <Text style={styles.demoLockTitle}>Chế độ demo</Text>
-              <Text style={styles.demoLockSubtitle}>Dữ liệu đang được fix cứng để trình bày UI/UX, không thêm sửa xoá.</Text>
-            </View>
-
             <Text style={styles.formEyebrow}>Thông tin chi tiết</Text>
-            <Text style={styles.formTitle}>Form thêm nguyên liệu</Text>
+            <Text style={styles.formTitle}>{editingId ? 'Cập nhật nguyên liệu' : 'Form thêm nguyên liệu'}</Text>
 
             {/* Form Fields */}
             <View style={styles.formGroup}>
@@ -492,8 +599,18 @@ export default function InventoryScreen() {
             </View>
 
             <TouchableOpacity style={[styles.primaryButton, { marginTop: 16 }]} onPress={handleSave} activeOpacity={0.8}>
-              <Text style={styles.primaryButtonText}>Lưu vào kho</Text>
+              <Text style={styles.primaryButtonText}>{editingId ? 'Cập nhật nguyên liệu' : 'Lưu vào kho'}</Text>
             </TouchableOpacity>
+
+            {editingId && (
+              <TouchableOpacity
+                style={[styles.primaryButton, styles.deleteButton]}
+                onPress={handleDelete}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.primaryButtonText}>Xóa khỏi kho</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       )}
@@ -510,6 +627,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: BottomTabInset + 16,
   },
   screenTitleRow: {
     flexDirection: 'row',
@@ -726,6 +844,10 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
+  },
+  deleteButton: {
+    backgroundColor: '#ff4d4d',
+    marginTop: 12,
   },
   // Form step styles
   formScroll: {

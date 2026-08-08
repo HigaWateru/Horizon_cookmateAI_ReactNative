@@ -21,11 +21,23 @@ export default function AppTabs() {
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
-            <TabButton>Home</TabButton>
+          <TabTrigger name="index" href="/" asChild>
+            <TabButton>Trang chủ</TabButton>
           </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Explore</TabButton>
+          <TabTrigger name="inventory" href="/inventory" asChild>
+            <TabButton>Kho</TabButton>
+          </TabTrigger>
+          <TabTrigger name="recipes" href="/recipes" asChild>
+            <TabButton>Món ăn</TabButton>
+          </TabTrigger>
+          <TabTrigger name="budget" href="/budget" asChild>
+            <TabButton>Ngân sách</TabButton>
+          </TabTrigger>
+          <TabTrigger name="chat" href="/chat" asChild>
+            <TabButton>AI</TabButton>
+          </TabTrigger>
+          <TabTrigger name="profile" href="/profile" asChild>
+            <TabButton>Cá nhân</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -48,14 +60,14 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 }
 
 export function CustomTabList(props: TabListProps) {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  // Force light colors because the application screens only support light mode styles
+  const colors = Colors.light;
 
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
-          Expo Starter
+          CookMate AI
         </ThemedText>
 
         {props.children}
@@ -65,7 +77,7 @@ export function CustomTabList(props: TabListProps) {
             <ThemedText type="link">Docs</ThemedText>
             <SymbolView
               tintColor={colors.text}
-              name={{ ios: 'arrow.up.right.square', web: 'link' }}
+              name={"arrow.up.right.square" as any}
               size={12}
             />
           </Pressable>

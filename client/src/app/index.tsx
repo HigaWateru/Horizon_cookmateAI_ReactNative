@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,24 +6,123 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import tokenStorage from '../services/tokenStorage';
+import authService from '../services/auth.service';
+import dashboardService from '../services/dashboard.service';
+import recipeService from '../services/recipe.service';
+import inventoryService from '../services/inventory.service';
 
 export default function HomeScreen() {
+  const [user, setUser] = useState<any>(null);
+  const [stats, setStats] = useState({
+    ingredients: '05',
+    recipes: '08',
+    budget: '680K',
+  });
+  const [expiringItem, setExpiringItem] = useState<{ name: string; daysLeft: number } | null>({
+    name: 'Rau muống',
+    daysLeft: 1,
+  });
+  const [loading, setLoading] = useState(false);
+
+  const formatBudget = (value: number) => {
+    if (value >= 1000000) {
+      return (value / 1000000).toFixed(1).replace('.0', '') + 'M';
+    }
+    return Math.round(value / 1000) + 'K';
+  };
+
+  const loadData = async () => {
+    const token = await tokenStorage.getAccessToken();
+    if (!token || token === 'demo_access_token') {
+      setUser({ name: 'Duy Anh' });
+      setStats({
+        ingredients: '05',
+        recipes: '08',
+        budget: '680K',
+      });
+      setExpiringItem({
+        name: 'Rau muống',
+        daysLeft: 1,
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Fetch user profile
+      const userRes = await authService.getMe();
+      const userName = userRes?.result?.name || 'Người dùng';
+      setUser({ name: userName });
+
+      // 2. Fetch statistics
+      const dashRes = await dashboardService.getStatistics();
+      const totalIngs = dashRes?.result?.totalIngredients ?? 0;
+      const budgetLeft = dashRes?.result?.remainingBudget ?? 0;
+
+      // 3. Fetch recommended recipes
+      const recipeRes = await recipeService.getRecommendations();
+      const recipesCount = recipeRes?.result?.length ?? 0;
+
+      // 4. Fetch expiring items from inventory
+      const invRes = await inventoryService.getAll({ size: 100 });
+      let expiring: { name: string; daysLeft: number } | null = null;
+      if (invRes?.result?.content) {
+        const validItems = invRes.result.content
+          .filter((item: any) => item.daysLeft !== undefined && item.daysLeft !== null)
+          .sort((a: any, b: any) => a.daysLeft - b.daysLeft);
+
+        const closest = validItems[0];
+        if (closest && closest.daysLeft <= 3) {
+          expiring = {
+            name: closest.name,
+            daysLeft: closest.daysLeft,
+          };
+        }
+      }
+
+      setStats({
+        ingredients: String(totalIngs).padStart(2, '0'),
+        recipes: String(recipesCount).padStart(2, '0'),
+        budget: formatBudget(budgetLeft),
+      });
+      setExpiringItem(expiring);
+    } catch (err) {
+      console.warn('Failed to load dashboard data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
   const todayStats = [
-    { id: 'ingredients', value: '05', label: 'Trong kho', route: '/inventory' },
-    { id: 'recipes', value: '08', label: 'Món gợi ý', route: '/recipes' },
-    { id: 'budget', value: '680K', label: 'Còn lại', route: '/budget' },
+    { id: 'ingredients', value: stats.ingredients, label: 'Trong kho', route: '/inventory' },
+    { id: 'recipes', value: stats.recipes, label: 'Món gợi ý', route: '/recipes' },
+    { id: 'budget', value: stats.budget, label: 'Còn lại', route: '/budget' },
   ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={loadData} colors={['#11876d']} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.welcomeContainer}>
-            <Text style={styles.welcomeUser}>Xin chào, Duy Anh 👋</Text>
+            <Text style={styles.welcomeUser}>Xin chào, {user?.name || 'Duy Anh'} 👋</Text>
             <Text style={styles.welcomeTitle}>Hôm nay mình giúp bạn nấu món gì?</Text>
           </View>
           <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
@@ -58,20 +157,49 @@ export default function HomeScreen() {
         </View>
 
         {/* Expiry Alert Card */}
-        <TouchableOpacity
-          style={styles.alertCard}
-          onPress={() => router.push('/recipes')}
-          activeOpacity={0.9}
-        >
-          <View style={styles.alertIconBg}>
-            <Text style={styles.alertIcon}>!</Text>
-          </View>
-          <View style={styles.alertContent}>
-            <Text style={styles.alertTitle}>Rau muống còn 1 ngày</Text>
-            <Text style={styles.alertSubtitle}>Dùng hôm nay để tránh lãng phí nhé.</Text>
-          </View>
-          <Text style={styles.alertChevron}>›</Text>
-        </TouchableOpacity>
+        {expiringItem ? (
+          <TouchableOpacity
+            style={styles.alertCard}
+            onPress={() => router.push('/recipes')}
+            activeOpacity={0.9}
+          >
+            <View style={styles.alertIconBg}>
+              <Text style={styles.alertIcon}>!</Text>
+            </View>
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>
+                {expiringItem.daysLeft < 0
+                  ? `${expiringItem.name} đã hết hạn`
+                  : expiringItem.daysLeft === 0
+                  ? `${expiringItem.name} hết hạn hôm nay`
+                  : `${expiringItem.name} còn ${expiringItem.daysLeft} ngày`}
+              </Text>
+              <Text style={styles.alertSubtitle}>
+                {expiringItem.daysLeft < 0
+                  ? 'Kiểm tra lại kho và dọn dẹp nguyên liệu quá hạn nhé.'
+                  : expiringItem.daysLeft === 0
+                  ? 'Dùng ngay hôm nay để tránh lãng phí nhé.'
+                  : 'Dùng sớm để tránh lãng phí nhé.'}
+              </Text>
+            </View>
+            <Text style={styles.alertChevron}>›</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.alertCard, styles.alertCardGreen]}
+            onPress={() => router.push('/inventory')}
+            activeOpacity={0.9}
+          >
+            <View style={[styles.alertIconBg, styles.alertIconBgGreen]}>
+              <Text style={[styles.alertIcon, styles.alertIconGreen]}>✓</Text>
+            </View>
+            <View style={styles.alertContent}>
+              <Text style={[styles.alertTitle, styles.alertTitleGreen]}>Kho nguyên liệu tươi ngon!</Text>
+              <Text style={[styles.alertSubtitle, styles.alertSubtitleGreen]}>Không có nguyên liệu nào sắp hết hạn.</Text>
+            </View>
+            <Text style={[styles.alertChevron, styles.alertChevronGreen]}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Overview Section */}
         <View style={styles.overviewSection}>
@@ -301,5 +429,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
+  },
+  alertCardGreen: {
+    backgroundColor: '#eefbf6',
+    borderColor: '#caeae0',
+  },
+  alertIconBgGreen: {
+    backgroundColor: '#11876d',
+  },
+  alertIconGreen: {
+    color: '#ffffff',
+  },
+  alertTitleGreen: {
+    color: '#11876d',
+  },
+  alertSubtitleGreen: {
+    color: '#6e8981',
+  },
+  alertChevronGreen: {
+    color: '#11876d',
   },
 });

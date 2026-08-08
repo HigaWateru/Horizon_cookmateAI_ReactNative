@@ -7,6 +7,7 @@ export interface TransactionPayload {
   category: string;
   date: string;
   note?: string;
+  addToInventory?: boolean;
 }
 
 /**
