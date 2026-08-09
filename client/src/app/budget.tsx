@@ -12,7 +12,7 @@ import {
   Platform,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { budgetData as initialBudgetData } from '../data/mockData';
 import { transactionService } from '../services/transaction.service';
@@ -27,6 +27,7 @@ const formatVnd = (value: number) => {
 };
 
 export default function BudgetScreen() {
+  const insets = useSafeAreaInsets();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -254,69 +255,74 @@ export default function BudgetScreen() {
       <Modal visible={isSheetOpen} animationType="slide" transparent>
         <View style={styles.backdrop}>
           <TouchableOpacity style={styles.backdropClose} onPress={closeSheet} activeOpacity={1} />
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetTitleRow}>
-              <View>
-                <Text style={styles.eyebrow}>Ghi lại chi tiêu</Text>
-                <Text style={styles.screenTitle}>Thêm khoản mới</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <View style={[styles.sheet, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetTitleRow}>
+                <View>
+                  <Text style={styles.eyebrow}>Ghi lại chi tiêu</Text>
+                  <Text style={styles.screenTitle}>Thêm khoản mới</Text>
+                </View>
+                <TouchableOpacity style={styles.sheetCloseButton} onPress={closeSheet}>
+                  <Text style={styles.sheetCloseText}>×</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.sheetCloseButton} onPress={closeSheet}>
-                <Text style={styles.sheetCloseText}>×</Text>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Tên khoản chi</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Ví dụ: Mua rau"
+                  placeholderTextColor="#999"
+                  value={formName}
+                  onChangeText={setFormName}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Số tiền</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Ví dụ: 25000"
+                  placeholderTextColor="#999"
+                  keyboardType="numeric"
+                  value={formAmount}
+                  onChangeText={setFormAmount}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Loại chi tiêu</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeScroll}>
+                  {expenseTypes.map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.typeChip, formCategory === t && styles.typeChipActive]}
+                      onPress={() => setFormCategory(t)}
+                    >
+                      <Text style={[styles.typeChipText, formCategory === t && styles.typeChipTextActive]}>{t}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.inventoryToggleRow}>
+                <Text style={styles.toggleText}>Thêm vào kho nguyên liệu</Text>
+                <Switch
+                  value={formAddToInventory}
+                  onValueChange={setFormAddToInventory}
+                  trackColor={{ false: '#caeae0', true: '#14b98f' }}
+                  thumbColor={formAddToInventory ? '#ffffff' : '#f4faf7'}
+                />
+              </View>
+
+              <TouchableOpacity style={styles.primaryButton} onPress={saveExpense} activeOpacity={0.8}>
+                <Text style={styles.primaryButtonText}>Lưu</Text>
               </TouchableOpacity>
             </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Tên khoản chi</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Ví dụ: Mua rau"
-                placeholderTextColor="#999"
-                value={formName}
-                onChangeText={setFormName}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Số tiền</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Ví dụ: 25000"
-                placeholderTextColor="#999"
-                keyboardType="numeric"
-                value={formAmount}
-                onChangeText={setFormAmount}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Loại chi tiêu</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeScroll}>
-                {expenseTypes.map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.typeChip, formCategory === t && styles.typeChipActive]}
-                    onPress={() => setFormCategory(t)}
-                  >
-                    <Text style={[styles.typeChipText, formCategory === t && styles.typeChipTextActive]}>{t}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={styles.inventoryToggleRow}>
-              <Text style={styles.toggleText}>Thêm vào kho nguyên liệu</Text>
-              <Switch
-                value={formAddToInventory}
-                onValueChange={setFormAddToInventory}
-                trackColor={{ false: '#caeae0', true: '#14b98f' }}
-                thumbColor={formAddToInventory ? '#ffffff' : '#f4faf7'}
-              />
-            </View>
-
-            <TouchableOpacity style={styles.primaryButton} onPress={saveExpense} activeOpacity={0.8}>
-              <Text style={styles.primaryButtonText}>Lưu</Text>
-            </TouchableOpacity>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -639,12 +645,14 @@ const styles = StyleSheet.create({
   backdropClose: {
     flex: 1,
   },
+  keyboardAvoidingView: {
+    width: '100%',
+  },
   sheet: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingBottom: 40,
     paddingTop: 10,
     alignItems: 'stretch',
   },

@@ -39,6 +39,11 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        if (userRepository.count() > 0) {
+            log.info("===> Cơ sở dữ liệu đã có dữ liệu người dùng. Bỏ qua chạy DataSeeder.");
+            return;
+        }
+
         log.info("===> Khởi chạy DataSeeder để tạo dữ liệu mặc định...");
 
         // 1. Seed Permissions

@@ -112,7 +112,7 @@ export default function ProfileScreen() {
         <View style={styles.actionGrid}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push('/inventory')}
+            onPress={() => router.navigate('/inventory')}
             activeOpacity={0.8}
           >
             <Text style={styles.actionTitle}>Kho nguyên liệu</Text>
@@ -120,7 +120,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push('/budget')}
+            onPress={() => router.navigate('/budget')}
             activeOpacity={0.8}
           >
             <Text style={styles.actionTitle}>Ngân sách</Text>
@@ -131,7 +131,7 @@ export default function ProfileScreen() {
         {/* Statistics Button */}
         <TouchableOpacity
           style={styles.fullWidthActionButton}
-          onPress={() => router.push('/statistics')}
+          onPress={() => router.navigate('/statistics')}
           activeOpacity={0.8}
         >
           <Text style={styles.fullWidthActionTitle}>📊 Báo cáo & Thống kê</Text>
