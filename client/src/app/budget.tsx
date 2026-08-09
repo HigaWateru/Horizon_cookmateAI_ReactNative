@@ -84,6 +84,16 @@ export default function BudgetScreen() {
     setFormAddToInventory(false);
   };
 
+const getCategoryIcon = (category: string) => {
+  switch (category) {
+    case 'Nguyên liệu': return '🥦';
+    case 'Đặt đồ ăn': return '🛵';
+    case 'Ăn ngoài': return '🍕';
+    case 'Gia vị': return '🧂';
+    default: return '💰';
+  }
+};
+
   const saveExpense = async () => {
     const amount = Number(formAmount);
     const name = formName.trim();
@@ -97,18 +107,53 @@ export default function BudgetScreen() {
       return;
     }
 
+    const token = await tokenStorage.getAccessToken();
+    const isDemo = !token || token === 'demo_access_token';
+
     setLoading(true);
     try {
-      await transactionService.create({
-        name,
-        amount,
-        category: formCategory,
-        date: new Date().toISOString().split('T')[0],
-        addToInventory: formAddToInventory
-      });
+      if (isDemo) {
+        // Update local state dynamically in demo/guest mode
+        const newExpense = {
+          id: `local_${Date.now()}`,
+          name,
+          amount,
+          category: formCategory,
+          icon: getCategoryIcon(formCategory)
+        };
+
+        const updatedExpenses = [newExpense, ...summary.expenses];
+        const updatedSpent = summary.spent + amount;
+
+        const updatedCategories = summary.categories.map((cat: any) => {
+          if (cat.name === formCategory) {
+            return { ...cat, amount: cat.amount + amount };
+          }
+          return cat;
+        });
+
+        setSummary({
+          ...summary,
+          spent: updatedSpent,
+          expenses: updatedExpenses,
+          categories: updatedCategories
+        });
+      } else {
+        // Submit to Backend Server in normal user mode
+        await transactionService.create({
+          name,
+          amount,
+          category: formCategory,
+          date: new Date().toISOString().split('T')[0],
+          addToInventory: formAddToInventory
+        });
+      }
+
       showToast('Ghi chép chi tiêu thành công.');
       closeSheet();
-      fetchSummary();
+      if (!isDemo) {
+        fetchSummary();
+      }
     } catch (err) {
       console.error('Failed to save expense', err);
       showToast('Lỗi khi ghi nhận chi tiêu.');
